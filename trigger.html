@@ -6,11 +6,33 @@
 </head>
 
 <body>
+    <h1>Open in OPay</h1>
+    <p>If not redirected automatically, click the button below:</p>
+    <button onclick="launchApp()"
+        style="padding: 20px; font-size: 20px; background: #00bf71; color: white; border: none; border-radius: 5px;">OPEN
+        IN APP</button>
+    <div id="status" style="margin-top: 20px; color: gray;"></div>
+
     <script>
-        window.location = 'intent://common?scheme=https://zugonwobi.github.io/test/poc.html#Intent;scheme=otravel;package=com.opay.pay;end';
-        setTimeout(function () {
-            window.location = 'otravel://common?scheme=https://zugonwobi.github.io/test/poc.html';
-        }, 500);
+        function launchApp() {
+            var intentUrl = 'intent://common?scheme=https://zugonwobi.github.io/test/poc.html#Intent;scheme=otravel;package=com.opay.pay;end';
+            var fallbackUrl = 'otravel://common?scheme=https://zugonwobi.github.io/test/poc.html';
+
+            document.getElementById('status').innerText = "Attempting to launch app...";
+
+            // Try intent first
+            window.location.href = intentUrl;
+
+            // Fallback for older devices or if intent fails (though difficult to detect reliably in JS)
+            setTimeout(function () {
+                window.location.href = fallbackUrl;
+            }, 1000);
+        }
+
+        // Try auto-launch on load, but button is backup
+        window.onload = function () {
+            setTimeout(launchApp, 500);
+        };
     </script>
 </body>
 
