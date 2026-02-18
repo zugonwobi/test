@@ -71,17 +71,23 @@
                 manualLink.href = iosUrl;
                 window.location.href = iosUrl;
 
-                // Secondary attempt with 'common' path if the first fails
+                // Secondary attempt with 'url' parameter (common in some OPay versions)
+                setTimeout(function () {
+                    if (document.hidden || document.webkitHidden) return;
+                    window.location.href = 'otravel://schemedispatcher?url=' + encodeURIComponent(pocUrl);
+                }, 500);
+
+                // Tertiary attempt with 'common' path
                 setTimeout(function () {
                     if (document.hidden || document.webkitHidden) return;
                     window.location.href = 'otravel://common?scheme=' + encodeURIComponent(pocUrl);
-                }, 500);
+                }, 1000);
 
-                // Tertiary attempt with 'opaypay' scheme
+                // Final attempts
                 setTimeout(function () {
                     if (document.hidden || document.webkitHidden) return;
                     window.location.href = 'opaypay://common?url=' + encodeURIComponent(pocUrl);
-                }, 1000);
+                }, 1500);
 
                 // Final Fallback to App Store after 3.5s
                 setTimeout(function () {

