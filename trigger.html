@@ -6,33 +6,73 @@
 </head>
 
 <body>
-    <h1>Open in OPay</h1>
-    <p>If not redirected automatically, click the button below:</p>
-    <button onclick="launchApp()"
-        style="padding: 20px; font-size: 20px; background: #00bf71; color: white; border: none; border-radius: 5px;">OPEN
-        IN APP</button>
-    <div id="status" style="margin-top: 20px; color: gray;"></div>
-
-    <script>
-        function launchApp() {
-            var intentUrl = 'intent://common?scheme=https://zugonwobi.github.io/test/poc.html#Intent;scheme=otravel;package=com.opay.pay;end';
-            var fallbackUrl = 'otravel://common?scheme=https://zugonwobi.github.io/test/poc.html';
-
-            document.getElementById('status').innerText = "Attempting to launch app...";
-
-            // Try intent first
-            window.location.href = intentUrl;
-
-            // Fallback for older devices or if intent fails (though difficult to detect reliably in JS)
-            setTimeout(function () {
-                window.location.href = fallbackUrl;
-            }, 1000);
+    <style>
+        button {
+            display: block;
+            width: 100%;
+            padding: 15px;
+            margin: 10px 0;
+            font-size: 16px;
+            color: white;
+            border: none;
+            border-radius: 8px;
+            cursor: pointer;
         }
 
-        // Try auto-launch on load, but button is backup
-        window.onload = function () {
-            setTimeout(launchApp, 500);
-        };
+        .btn-1 {
+            background-color: #00C853;
+        }
+
+        /* Green */
+        .btn-2 {
+            background-color: #2979FF;
+        }
+
+        /* Blue */
+        .btn-3 {
+            background-color: #FF6D00;
+        }
+
+        /* Orange */
+        .btn-4 {
+            background-color: #6200EA;
+        }
+
+        /* Purple */
+    </style>
+
+    <h2>OPay Deep Link Tester</h2>
+    <p>Please try these buttons one by one. Tell me which one opens the OPay app.</p>
+
+    <!-- Method 1: Standard Scheme -->
+    <button class="btn-1" onclick="window.location='opay://common?url=https://zugonwobi.github.io/test/poc.html'">
+        1. Try opay:// (Direct)
+    </button>
+
+    <!-- Method 2: OTravel Scheme (Old) -->
+    <button class="btn-2" onclick="window.location='otravel://common?url=https://zugonwobi.github.io/test/poc.html'">
+        2. Try otravel:// (Direct)
+    </button>
+
+    <!-- Method 3: Intent with opay scheme -->
+    <button class="btn-3"
+        onclick="window.location='intent://common?url=https://zugonwobi.github.io/test/poc.html#Intent;scheme=opay;package=com.opay.pay;end'">
+        3. Try Intent (opay scheme)
+    </button>
+
+    <!-- Method 4: Intent with otravel scheme -->
+    <button class="btn-4"
+        onclick="window.location='intent://common?url=https://zugonwobi.github.io/test/poc.html#Intent;scheme=otravel;package=com.opay.pay;end'">
+        4. Try Intent (otravel scheme)
+    </button>
+
+    <div id="log"></div>
+
+    <script>
+        // Simple logger to see if JS is running
+        function log(msg) {
+            document.getElementById('log').innerText = msg;
+        }
     </script>
 </body>
 
