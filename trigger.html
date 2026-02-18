@@ -52,13 +52,39 @@
     </div>
 
     <script>
-        const intentUrl = 'intent://common?url=https://zugonwobi.github.io/test/poc.html#Intent;scheme=opay;package=com.opay.android;S.browser_fallback_url=https%3A%2F%2Fplay.google.com%2Fstore%2Fapps%2Fdetails%3Fid%3Dcom.opay.android;end';
-
-        document.getElementById('manual-link').href = intentUrl;
-
-        // Auto-redirect on load
         window.onload = function () {
-            window.location.replace(intentUrl);
+            var userAgent = navigator.userAgent || navigator.vendor || window.opera;
+            var isIos = /iPad|iPhone|iPod/.test(userAgent) && !window.MSStream;
+            var isAndroid = /android/i.test(userAgent);
+
+            var pocUrl = 'https://zugonwobi.github.io/test/poc.html';
+            var manualLink = document.getElementById('manual-link');
+
+            if (isIos) {
+                var iosUrl = 'opay://common?url=' + encodeURIComponent(pocUrl);
+                var appStoreUrl = 'https://apps.apple.com/ng/app/opay-we-are-beyond-banking/id1647492161';
+
+                manualLink.href = iosUrl;
+                window.location.href = iosUrl;
+
+                // Fallback to App Store if app not installed (waits 2.5s)
+                setTimeout(function () {
+                    if (document.hidden || document.webkitHidden) return;
+                    window.location.href = appStoreUrl;
+                }, 2500);
+
+            } else if (isAndroid) {
+                var androidUrl = 'intent://common?url=' + encodeURIComponent(pocUrl) + '#Intent;scheme=opay;package=com.opay.android;S.browser_fallback_url=' + encodeURIComponent('https://play.google.com/store/apps/details?id=com.opay.android') + ';end';
+
+                manualLink.href = androidUrl;
+                window.location.replace(androidUrl);
+
+            } else {
+                // Default fallback for desktop/other
+                var playStoreUrl = 'https://play.google.com/store/apps/details?id=com.opay.android';
+                manualLink.href = playStoreUrl;
+                window.location.href = playStoreUrl;
+            }
         };
     </script>
 </body>
